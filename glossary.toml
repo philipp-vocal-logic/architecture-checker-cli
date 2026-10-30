@@ -1,0 +1,43 @@
+[settings]
+paths = ["src", "tests", "README.md", "arch.toml", "pyproject.toml"]
+exclude = [
+    ".git/",
+    ".venv/",
+    ".pytest_cache/",
+    ".ruff_cache/",
+    "__pycache__/",
+    "*.egg-info/",
+    "glossary.toml",
+    "symbols.toml",
+]
+similarity_threshold = 0.65
+
+[[terms]]
+term = "checker"
+definition = "The CLI tool that checks files against configured architecture rules."
+forbidden_terms = ["linter", "scanner", "inspector", "analyzer"]
+
+[[terms]]
+term = "rule"
+definition = "A table entry in arch.toml binding file globs to line limits, forbidden regexes, and a fix."
+forbidden_terms = ["policy", "convention", "ruleset", "directive"]
+
+[[terms]]
+term = "finding"
+definition = "A diagnostic line reported to stderr when a checked file exceeds max_lines or matches a forbid pattern."
+forbidden_terms = ["violation", "hit", "offense", "infringement"]
+
+[[terms]]
+term = "fix"
+definition = "The actionable instruction printed once after all findings for a broken rule."
+forbidden_terms = ["remediation", "fix_hint", "recommendation"]
+
+[[terms]]
+term = "forbid"
+definition = "A regular expression pattern disallowed on any line of a matched file."
+forbidden_terms = ["blacklist", "banned_regex", "disallowed_pattern"]
+
+[[terms]]
+term = "target"
+definition = "An explicit file or directory path argument passed on the CLI to filter which matched files are checked."
+forbidden_terms = ["candidate_file", "scanned_file", "input_file"]

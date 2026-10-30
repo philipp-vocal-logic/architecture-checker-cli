@@ -1,0 +1,47 @@
+[settings]
+include = ["src/**/*.py", "tests/**/*.py"]
+exclude = []
+forbidden_subwords = [
+    "data",
+    "info",
+    "item",
+    "obj",
+    "val",
+    "temp",
+    "mgr",
+    "manager",
+    "helper",
+    "util",
+    "stuff",
+    "misc",
+]
+
+[[terms]]
+term = "check"
+definition = "Verify file text or architecture rules to produce findings."
+forbidden_terms = ["lint", "scan", "analyze", "inspect", "audit", "evaluate"]
+
+[[terms]]
+term = "resolve"
+definition = "Expand file and ignore globs into a sorted list of filesystem paths."
+forbidden_terms = ["find_files", "locate_files", "crawl", "discover"]
+
+[[terms]]
+term = "finding"
+definition = "A formatted diagnostic string produced when a file breaks a rule."
+forbidden_terms = ["violation", "hit", "offense", "infringement"]
+
+[[terms]]
+term = "rule"
+definition = "A configured mapping of file globs, constraints, and fix text."
+forbidden_terms = ["policy", "convention", "ruleset", "directive"]
+
+[[terms]]
+term = "config"
+definition = "Parsed TOML configuration mapping or its filesystem path."
+forbidden_terms = ["settings_obj", "options_map", "preferences"]
+
+[[terms]]
+term = "target"
+definition = "An explicit file or directory path used to filter resolved files."
+forbidden_terms = ["candidate", "input_file", "scanned_file"]

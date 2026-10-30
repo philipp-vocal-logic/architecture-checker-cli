@@ -1,0 +1,18 @@
+[[rules]]
+files = ["src/**/*.py"]
+max_lines = 120
+forbid = [
+    "^\\s*(from|import)\\s+(subprocess|ast|pytest|tests)\\b",
+    "^\\s*from\\s+\\.",
+]
+fix = "Enforce import direction (tests -> src only) and keep src free of subprocess, AST, or relative imports."
+
+[[rules]]
+files = ["tests/**/*.py"]
+max_lines = 200
+fix = "Keep test modules concise and atomic."
+
+[[rules]]
+files = ["tests/**/*"]
+ignore = ["tests/**/test_*.py", "tests/**/__pycache__/**"]
+fix = "Name test modules test_<module>.py."
