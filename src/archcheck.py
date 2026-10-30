@@ -107,8 +107,8 @@ def main(argv: Sequence[str] | None = None) -> int:
         rules = _load_rules(args.config.resolve())
         targets = {_resolve_target(root, t) for t in args.targets} if args.targets else None
         output = [line for rule in rules for line in check_rule(root, rule, targets)]
-    except (OSError, tomllib.TOMLDecodeError, ValueError, re.error) as err:
-        print(f"error: {err}", file=sys.stderr)
+    except (OSError, tomllib.TOMLDecodeError, ValueError, re.error) as error:
+        print(f"error: {error}", file=sys.stderr)
         return 2
     if output:
         print(*output, sep="\n", file=sys.stderr)
