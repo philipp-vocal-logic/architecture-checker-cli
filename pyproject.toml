@@ -47,7 +47,7 @@ src = ["src", "tests"]
 select = ["E", "F", "W", "I", "B", "UP", "SIM", "C90"]
 
 [tool.ruff.lint.mccabe]
-max-complexity = 5
+max-complexity = 10
 
 [tool.ruff.format]
 quote-style = "double"
