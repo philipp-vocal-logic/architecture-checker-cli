@@ -3,11 +3,13 @@
 from __future__ import annotations
 
 import argparse
+import os
 import re
 import sys
 import tomllib
-from collections.abc import Iterable, Mapping, Sequence
+from collections.abc import Mapping, Sequence
 from dataclasses import dataclass
+from fnmatch import fnmatchcase
 from pathlib import Path, PurePosixPath
 from typing import Any
 
@@ -110,20 +112,62 @@ def check_text(
     return findings
 
 
-def _glob_all(root: Path, patterns: Iterable[str]) -> set[Path]:
-    return {path for pattern in patterns for path in root.glob(pattern)}
+def _is_ignored(rel: PurePosixPath, ignore: Sequence[str]) -> bool:
+    return any(rel.full_match(pattern) for pattern in ignore)
 
 
-def _is_ignored(path: Path, ignored: set[Path]) -> bool:
-    return path in ignored or not ignored.isdisjoint(path.parents)
+def _may_contain(rel_dir: PurePosixPath, pattern: str) -> bool:
+    """Whether files below `rel_dir` could match `pattern`."""
+    pattern_parts = PurePosixPath(pattern).parts
+    for dir_part, pattern_part in zip(rel_dir.parts, pattern_parts, strict=False):
+        if pattern_part == "**":
+            return True
+        if not fnmatchcase(dir_part, pattern_part):
+            return False
+    return len(rel_dir.parts) < len(pattern_parts)
+
+
+def _glob(root: Path, files: Sequence[str], ignore: Sequence[str]) -> dict[str, set[Path]]:
+    """Map each `files` glob to its matching files in a single walk.
+
+    The walk enters a directory only if it is not ignored and could contain a match.
+    Directory symlinks are not followed, so symlink loops cannot occur.
+    """
+    found: dict[str, set[Path]] = {pattern: set() for pattern in files}
+    for dir_path, dir_names, file_names in os.walk(root):
+        rel_dir = PurePosixPath(Path(dir_path).relative_to(root).as_posix())
+        dir_names[:] = [
+            name
+            for name in dir_names
+            if not _is_ignored(rel_dir / name, ignore)
+            and any(_may_contain(rel_dir / name, pattern) for pattern in files)
+        ]
+        for name in file_names:
+            rel = rel_dir / name
+            if _is_ignored(rel, ignore) or not (root / rel).is_file():
+                continue
+            for pattern in files:
+                if rel.full_match(pattern):
+                    found[pattern].add(root / rel)
+    return found
 
 
 def resolve_files(
-    root: Path, files: Sequence[str], ignore: Sequence[str] = (), targets: set[Path] | None = None
+    root: Path,
+    files: Sequence[str],
+    ignore: Sequence[str] = (),
+    targets: set[Path] | None = None,
+    *,
+    require_match: bool = False,
 ) -> list[Path]:
-    """Resolve files matching `files` globs minus `ignore` globs, limited to absolute `targets`."""
-    ignored = _glob_all(root, ignore)
-    selected = {p for p in _glob_all(root, files) if p.is_file() and not _is_ignored(p, ignored)}
+    """Resolve files matching `files` globs minus `ignore` globs, limited to absolute `targets`.
+
+    With `require_match`, every `files` glob must match a file, so a typo fails loudly.
+    """
+    found = _glob(root.resolve(), files, ignore)
+    if require_match and (unmatched := [pattern for pattern, paths in found.items() if not paths]):
+        raise ValueError(f"files glob matches nothing: {unmatched[0]!r}")
+    selected = set().union(*found.values())
     if targets is not None:
         selected = {p for p in selected if any(p.is_relative_to(t) for t in targets)}
     return sorted(selected)
@@ -136,21 +180,14 @@ def _read_text(path: Path, rel: str) -> str:
         raise ValueError(f"{rel}: not valid UTF-8") from None
 
 
-def _check_globs_match(root: Path, rule: Rule) -> None:
-    """Content rules must match something; otherwise a typo would pass silently."""
-    if rule.forbids_files:
-        return
-    for pattern in rule.files:
-        if next(root.glob(pattern), None) is None:
-            raise ValueError(f"files glob matches nothing: {pattern!r}")
-
-
 def check_rule(root: Path, rule: Rule, targets: set[Path] | None = None) -> list[str]:
     """Check a single architecture rule across all matching files."""
     root = root.resolve()
-    _check_globs_match(root, rule)
+    # Forbidden-file rules are expected to match nothing; content rules must match something.
+    require_match = not rule.forbids_files
+    paths = resolve_files(root, rule.files, rule.ignore, targets, require_match=require_match)
     findings: list[str] = []
-    for path in resolve_files(root, rule.files, rule.ignore, targets):
+    for path in paths:
         rel = path.relative_to(root).as_posix()
         if rule.forbids_files:
             findings.append(f"{rel}: forbidden file")
@@ -169,9 +206,8 @@ def _load_tables(config_path: Path) -> list[Any]:
 
 
 def _resolve_target(root: Path, target: Path) -> Path:
+    # Missing targets are allowed: `git diff --name-only` lists deleted files too.
     resolved = target.resolve()
-    if not resolved.exists():
-        raise FileNotFoundError(f"target not found: {target}")
     if not resolved.is_relative_to(root):
         raise ValueError(f"target outside config directory {root}: {target}")
     return resolved

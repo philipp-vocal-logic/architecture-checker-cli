@@ -3,11 +3,11 @@
 from __future__ import annotations
 
 import re
-from pathlib import Path
+from pathlib import Path, PurePosixPath
 
 import pytest
 
-from archcheck import Rule, check_rule, check_text, main, resolve_files
+from archcheck import Rule, _may_contain, check_rule, check_text, main, resolve_files
 
 # --- Layer 1: Pure Constraint Checking (check_text) ---
 
@@ -188,6 +188,50 @@ def test_check_rule_allows_forbidden_file_glob_matching_nothing(tmp_path: Path) 
     )
 
 
+@pytest.mark.parametrize("files", [["src/**/*.py"], ["src/*.py"]])
+def test_check_rule_rejects_glob_matching_only_directories_or_ignored_files(
+    tmp_path: Path, files: list[str]
+) -> None:
+    (tmp_path / "src" / "pkg").mkdir(parents=True)
+    (tmp_path / "src" / "test_a.py").write_text("", encoding="utf-8")
+    rule = {"files": files, "ignore": ["src/test_*.py"], "max_lines": 5, "fix": "Split."}
+    with pytest.raises(ValueError, match="matches nothing"):
+        check_rule(tmp_path, Rule.from_toml(rule))
+
+
+def test_resolve_files_trailing_double_star_matches_files(tmp_path: Path) -> None:
+    nested = tmp_path / "src" / "pkg" / "a.py"
+    nested.parent.mkdir(parents=True)
+    nested.write_text("", encoding="utf-8")
+    assert resolve_files(tmp_path, ["src/**"]) == [nested]
+
+
+@pytest.mark.parametrize(
+    ("rel_dir", "pattern", "expected"),
+    [
+        ("node_modules", "*.py", False),
+        ("src", "src/*.py", True),
+        ("src/pkg", "src/*.py", False),
+        ("lib", "src/**/*.py", False),
+        ("src/a/b", "src/**/*.py", True),
+        ("node_modules", "**/*.py", True),
+    ],
+)
+def test_may_contain_limits_walk_to_directories_that_can_match(
+    rel_dir: str, pattern: str, expected: bool
+) -> None:
+    assert _may_contain(PurePosixPath(rel_dir), pattern) is expected
+
+
+def test_resolve_files_does_not_follow_directory_symlinks(tmp_path: Path) -> None:
+    (tmp_path / "ext").mkdir()
+    (tmp_path / "ext" / "e.py").write_text("", encoding="utf-8")
+    (tmp_path / "src").mkdir()
+    (tmp_path / "src" / "linked").symlink_to(tmp_path / "ext")
+    (tmp_path / "src" / "loop").symlink_to(tmp_path / "src")
+    assert resolve_files(tmp_path, ["src/**/*.py"]) == []
+
+
 def test_check_rule_error_names_non_utf8_file(tmp_path: Path) -> None:
     (tmp_path / "bin.py").write_bytes(b"\xff\xfe\n")
     with pytest.raises(ValueError, match="bin.py: not valid UTF-8"):
@@ -229,14 +273,23 @@ def test_main_returns_one_and_writes_findings_to_stderr_only(
 
 def test_main_returns_two_on_error(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
     config = tmp_path / "arch.toml"
-    config.write_text('[[rules]]\nfiles = ["*.py"]\nforbid = ["x"]\nfix = "Fix."\n')
+    (tmp_path / "app.py").write_text("x = 1\n", encoding="utf-8")
     assert main(["--config", str(tmp_path / "missing.toml")]) == 2
-    assert main(["nosuch.py", "--config", str(config)]) == 2
+    assert "missing.toml" in capsys.readouterr().err
     config.write_text('[[rules]]\nfiles = ["*.py"]\nforbid = ["("]\nfix = "Fix."\n')
     assert main(["--config", str(config)]) == 2
+    assert "invalid forbid regex" in capsys.readouterr().err
     config.write_text("")
     assert main(["--config", str(config)]) == 2
-    assert "error:" in capsys.readouterr().err
+    assert "must contain only [[rules]]" in capsys.readouterr().err
+
+
+def test_main_skips_missing_target(tmp_path: Path, capsys: pytest.CaptureFixture[str]) -> None:
+    (tmp_path / "app.py").write_text("import secret_db\n", encoding="utf-8")
+    config = tmp_path / "arch.toml"
+    config.write_text('[[rules]]\nfiles = ["*.py"]\nforbid = ["secret_db"]\nfix = "Fix."\n')
+    assert main([str(tmp_path / "deleted.py"), "--config", str(config)]) == 0
+    assert capsys.readouterr() == ("", "")
 
 
 def test_main_error_is_prefixed_with_rule_number(
