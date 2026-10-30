@@ -8,7 +8,7 @@ version = "0.1.0"
 description = "Minimal zero-noise architecture checker CLI for agentic coding tools"
 readme = "README.md"
 license = "MIT"
-requires-python = ">=3.13"
+requires-python = ">=3.12"
 dependencies = []
 
 [project.urls]
@@ -39,7 +39,7 @@ testpaths = ["tests"]
 addopts = ["-q", "--strict-markers"]
 
 [tool.ruff]
-target-version = "py313"
+target-version = "py312"
 line-length = 100
 src = ["src", "tests"]
 

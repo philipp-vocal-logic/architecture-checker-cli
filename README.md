@@ -1,6 +1,6 @@
 # archcheck
 
-Minimal, zero-noise architecture checker CLI for agentic coding tools (Python 3.13+, zero runtime dependencies).
+Minimal, zero-noise architecture checker CLI for agentic coding tools (Python 3.12+, zero runtime dependencies).
 
 ## Configuration (`arch.toml`)
 

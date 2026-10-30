@@ -112,8 +112,28 @@ def check_text(
     return findings
 
 
+def _match_parts(path_parts: tuple[str, ...], pattern_parts: tuple[str, ...]) -> bool:
+    if not pattern_parts:
+        return not path_parts
+    if pattern_parts == ("**",):
+        return bool(path_parts)
+    if pattern_parts[0] == "**":
+        return _match_parts(path_parts, pattern_parts[1:]) or (
+            bool(path_parts) and _match_parts(path_parts[1:], pattern_parts)
+        )
+    return (
+        bool(path_parts)
+        and fnmatchcase(path_parts[0], pattern_parts[0])
+        and _match_parts(path_parts[1:], pattern_parts[1:])
+    )
+
+
+def _matches(rel: PurePosixPath, pattern: str) -> bool:
+    return _match_parts(rel.parts, PurePosixPath(pattern).parts)
+
+
 def _is_ignored(rel: PurePosixPath, ignore: Sequence[str]) -> bool:
-    return any(rel.full_match(pattern) for pattern in ignore)
+    return any(_matches(rel, pattern) for pattern in ignore)
 
 
 def _may_contain(rel_dir: PurePosixPath, pattern: str) -> bool:
@@ -147,7 +167,7 @@ def _glob(root: Path, files: Sequence[str], ignore: Sequence[str]) -> dict[str, 
             if _is_ignored(rel, ignore) or not (root / rel).is_file():
                 continue
             for pattern in files:
-                if rel.full_match(pattern):
+                if _matches(rel, pattern):
                     found[pattern].add(root / rel)
     return found
 
