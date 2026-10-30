@@ -6,8 +6,13 @@ build-backend = "setuptools.build_meta"
 name = "archcheck"
 version = "0.1.0"
 description = "Minimal zero-noise architecture checker CLI for agentic coding tools"
+readme = "README.md"
+license = "MIT"
 requires-python = ">=3.12"
 dependencies = []
+
+[project.urls]
+Repository = "https://github.com/philipp-vocal-logic/architecture-checker-cli"
 
 [project.scripts]
 architecture = "archcheck:main"
@@ -21,8 +26,8 @@ dev = [
 ]
 
 [tool.uv.sources]
-glossary-checker-cli = { path = "../glossary-checker-cli", editable = true }
-symbol-checker-cli = { path = "../symbol-checker-cli", editable = true }
+glossary-checker-cli = { git = "https://github.com/philipp-vocal-logic/glossary-checker-cli.git", branch = "main" }
+symbol-checker-cli = { git = "https://github.com/philipp-vocal-logic/symbol-checker-cli.git", branch = "main" }
 
 [tool.setuptools]
 package-dir = {"" = "src"}
