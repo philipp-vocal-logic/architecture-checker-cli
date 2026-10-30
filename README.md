@@ -18,11 +18,11 @@ fix = "Import direction is ui -> app -> domain. Keep domain pure and use ports."
 ```
 
 ### Rule Keys
-- `files`: Glob patterns to check (required). When both `max_lines` and `forbid` are omitted, any matched file not excluded by `ignore` is reported as `<path>: forbidden file`.
+- `files`: Glob patterns relative to the config directory (required). In rules with `max_lines` or `forbid`, every pattern must match at least one path, so typos fail loudly. When both `max_lines` and `forbid` are omitted, any matched file not excluded by `ignore` is reported as `<path>: forbidden file`.
 - `fix`: Actionable instruction printed once per broken rule (required).
-- `ignore`: Glob patterns to exclude (optional).
-- `max_lines`: Maximum lines per file (optional).
-- `forbid`: Regular expressions forbidden on any line (optional).
+- `ignore`: Glob patterns to exclude; a matched directory excludes everything below it (optional).
+- `max_lines`: Positive maximum lines per file (optional).
+- `forbid`: Non-empty list of regular expressions forbidden on any line (optional). Matching is line-based: it also matches text in docstrings and comments, and does not see multi-line imports.
 
 ## Usage
 
@@ -30,7 +30,7 @@ fix = "Import direction is ui -> app -> domain. Keep domain pure and use ports."
 # Check entire configured workspace
 uv run architecture
 
-# Filter to specific file(s) or directory(s)
+# Filter to specific file(s) or directory(s), relative to the current directory
 uv run architecture src/archcheck.py
 uv run architecture tests/
 
@@ -46,11 +46,12 @@ uv run architecture --config path/to/arch.toml
   src/domain/order.py:4: from app.infra.db import Session
   fix: Import direction is ui -> app -> domain. Keep domain pure and use ports.
   ```
-- **Error (exit `2`, `stderr`):** Invalid config, regex, encoding, or missing target path.
+- **Error (exit `2`, `stderr`):** Invalid config or regex, a `files` glob matching nothing, a non-UTF-8 file, or a missing target or one outside the config directory. Errors name the rule number and the cause, e.g. `error: rule 2: unknown keys: max_line`.
 
 ## Development
 
 ```bash
+git config core.hooksPath .githooks
 uv run pytest
 uv run ruff check .
 uv run ruff format --check .
