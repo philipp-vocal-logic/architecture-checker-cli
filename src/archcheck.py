@@ -225,6 +225,15 @@ def _load_tables(config_path: Path) -> list[Any]:
     return tables
 
 
+def _resolve_root(config_path: Path) -> Path:
+    resolved = config_path.resolve()
+    return (
+        resolved.parent.parent
+        if resolved.parent.name == ".policy"  # glossary: ignore[policy]
+        else resolved.parent
+    )
+
+
 def _resolve_target(root: Path, target: Path) -> Path:
     # Missing targets are allowed: `git diff --name-only` lists deleted files too.
     resolved = target.resolve()
@@ -251,7 +260,7 @@ def main(argv: Sequence[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         config_path = args.config.resolve()
-        root = config_path.parent
+        root = _resolve_root(config_path)
         tables = _load_tables(config_path)
         targets = {_resolve_target(root, t) for t in args.targets} if args.targets else None
         output = _check_tables(root, tables, targets)

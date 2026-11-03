@@ -329,6 +329,22 @@ def test_main_filters_to_explicit_target_directory_relative_to_cwd(
     assert "src/app.py:1: import secret_db" in capsys.readouterr().err
 
 
+def test_main_resolves_parent_root_for_nested_config_dir(
+    tmp_path: Path, capsys: pytest.CaptureFixture[str]
+) -> None:
+    src_dir = tmp_path / "src"
+    src_dir.mkdir()
+    (src_dir / "app.py").write_text("import secret_db\n", encoding="utf-8")
+    config = tmp_path / ".policy" / "arch.toml"  # glossary: ignore[policy]
+    config.parent.mkdir()
+    config.write_text(
+        '[[rules]]\nfiles = ["src/**/*.py"]\nforbid = ["secret_db"]\nfix = "Use port."\n',
+        encoding="utf-8",
+    )
+    assert main(["--config", str(config)]) == 1
+    assert capsys.readouterr() == ("", "src/app.py:1: import secret_db\nfix: Use port.\n")
+
+
 def test_project_complies_with_own_arch_toml() -> None:
     repo_config = Path(__file__).resolve().parent.parent / "arch.toml"
     assert main(["--config", str(repo_config)]) == 0
